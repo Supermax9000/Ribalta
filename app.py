@@ -5,7 +5,19 @@ import pandas as pd
 import numpy as np
 import re
 import difflib
+import os
 from datetime import datetime
+
+# Configura il tema scuro di default direttamente dal codice per non affaticare la vista
+st.set_page_config(
+    page_title="Scanner ULD",
+    page_icon="🧳",
+    layout="山区",
+    initial_sidebar_state="collapsed"
+)
+
+# Nome del file fisico dove verranno memorizzati i dati sul server cloud
+FILE_DATABASE = "inventario_permanente.csv"
 
 # Inizializza il lettore OCR
 @st.cache_resource
@@ -14,15 +26,19 @@ def load_ocr():
 
 reader = load_ocr()
 
-# Inizializza la tabella nella sessione
-if 'database' not in st.session_state:
-    st.session_state.database = pd.DataFrame(
-        columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno']
-    )
+# FUNZIONE DI CARICAMENTO: Legge il file CSV permanente se esiste, altrimenti ne crea uno vuoto
+def carica_database_permanente():
+    if os.path.exists(FILE_DATABASE):
+        try:
+            return pd.read_csv(FILE_DATABASE)
+        except Exception:
+            pass
+    # Se il file non esiste o è corrotto, restituisce una struttura vuota
+    return pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
 
-# Garantisce l'esistenza della chiave del campo di testo per evitare conflitti
-if 'campo_input_interattivo' not in st.session_state:
-    st.session_state.campo_input_interattivo = ""
+# Inizializza la tabella nella sessione prelevando i dati dal file permanente
+if 'database' not in st.session_state:
+    st.session_state.database = carica_database_permanente()
 
 # Elenco ufficiale dei prefissi ULD e delle Compagnie Aeree
 PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
@@ -46,7 +62,6 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
-    
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
             coordinate_quadrato = res
@@ -59,13 +74,10 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
             except Exception:
                 continue
-        
     if not blocchi_processati:
         return []
-        
     blocchi_processati.sort(key=lambda x: x['y_centro'])
     righe, riga_corrente, y_riga_corrente = [], [], -1
-    
     for blocco in blocchi_processati:
         if y_riga_corrente == -1:
             y_riga_corrente = blocco['y_centro']
@@ -89,29 +101,24 @@ def estrai_e_pulisci_uld(lista_righe):
         if match_prefisso:
             prefisso_rilevato = match_prefisso.group(1)
             resto_riga = riga_pulita[3:]
-            
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
                 prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
-            
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
-            
             if numeri:
                 blocco_numerico = numeri
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
                     suffisso = re.sub(r'[^A-Z0-9]', '', suffisso)
-                    
                     if not suffisso or len(suffisso) < 2:
                         if "JUNEYAO" in riga_pulita or "HO" in riga_pulita: suffisso = "HO"
                         elif "CHINA" in riga_pulita or "EASTERN" in riga_pulita: suffisso = "MU"
                         elif "R7" in riga_pulita: suffisso = "R7"
                         else: suffisso = "XX"
-                        
                     return f"{prefisso_finale}{blocco_numerico}{suffisso[:2]}"
     return ""
 
@@ -128,7 +135,6 @@ def classifica_container(codice):
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
 def al_pressione_invio():
     codice_grezzo = st.session_state.campo_input_interattivo.upper().strip()
-    
     if not codice_grezzo:
         return
         
@@ -164,15 +170,17 @@ def al_pressione_invio():
             'Stato': stato_container,
             'Tipo Danno': testo_danno
         }])
+        
+        # Unisce e salva fisicamente nel file CSV sul server cloud
         st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
-        st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
+        st.session_state.database.to_csv(FILE_DATABASE, index=False)
+        st.toast(f"💾 {codice_salvataggio} salvato permanentemente!")
         
     st.session_state.campo_input_interattivo = ""
 
 st.title("🧳 Gestione Rapida Contenitori ULD")
-st.write("Digita o usa la foto, poi premi **INVIO** dentro la casella per confermare il salvataggio.")
+st.write("I dati sono salvati in automatico: non andranno persi aggiornando la pagina.")
 
-# Sezione Opzionale dello Scanner Ottico
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
     img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
@@ -181,14 +189,12 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
         file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
         opencv_img = cv2.imdecode(file_bytes, 1)
         st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
-        
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
-        
-        codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizonatali(risultati_ocr)) if risultati_ocr else ""
+        codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_input_interattivo = codice_da_ocr
-            st.success(f"Codice estratto: **{codice_da_ocr}**. Adesso è scritto nel modulo sotto: controllalo e premi INVIO per salvare.")
+            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi INVIO per confermare.")
         else:
             st.warning("Impossibile isolare un codice dall'immagine.")
 
@@ -214,9 +220,17 @@ st.text_input(
 
 st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice.")
+
+# Pulsante per svuotare completamente l'intero inventario se si vuole iniziare un nuovo turno
+if not st.session_state.database.empty:
+    if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
+        st.session_state.database = pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
+        st.session_state.database.to_csv(FILE_DATABASE, index=False)
+        st.rerun()
 
 if not st.session_state.database.empty:
-    # 🟢 MODIFICATO: Applica il triplo ordinamento richiesto (Compagnia -> Categoria -> Codice)
+    # Applica l'ordinamento a 3 livelli prima di mostrare l'editor
     df_ordinato = st.session_state.database.sort_values(by=['Compagnia', 'Categoria', 'Codice']).reset_index(drop=True)
     
     tabella_modificata = st.data_editor(
@@ -225,8 +239,10 @@ if not st.session_state.database.empty:
         num_rows="dynamic"
     )
     
+    # Se l'utente modifica a mano o cancella righe dall'editor, salva subito le modifiche nel CSV
     if not tabella_modificata.equals(df_ordinato):
         st.session_state.database = tabella_modificata
+        st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.rerun()
     
     col_dl1, col_dl2 = st.columns(2)
