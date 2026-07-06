@@ -1,4 +1,13 @@
 import streamlit as st
+
+# Fondamentale: deve essere il primissimo comando in assoluto all'inizio del file
+st.set_page_config(
+    page_title="Scanner ULD",
+    page_icon="🧳",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
 import cv2
 import easyocr
 import pandas as pd
@@ -7,14 +16,6 @@ import re
 import difflib
 import os
 from datetime import datetime
-
-# Configura il tema scuro di default direttamente dal codice per non affaticare la vista
-st.set_page_config(
-    page_title="Scanner ULD",
-    page_icon="🧳",
-    layout="山区",
-    initial_sidebar_state="collapsed"
-)
 
 # Nome del file fisico dove verranno memorizzati i dati sul server cloud
 FILE_DATABASE = "inventario_permanente.csv"
@@ -33,7 +34,6 @@ def carica_database_permanente():
             return pd.read_csv(FILE_DATABASE)
         except Exception:
             pass
-    # Se il file non esiste o è corrotto, restituisce una struttura vuota
     return pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
 
 # Inizializza la tabella nella sessione prelevando i dati dal file permanente
@@ -64,11 +64,11 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     blocchi_processati = []
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res)
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1])
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
@@ -103,13 +103,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -171,7 +171,6 @@ def al_pressione_invio():
             'Tipo Danno': testo_danno
         }])
         
-        # Unisce e salva fisicamente nel file CSV sul server cloud
         st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.toast(f"💾 {codice_salvataggio} salvato permanentemente!")
@@ -222,7 +221,6 @@ st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
 st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice.")
 
-# Pulsante per svuotare completamente l'intero inventario se si vuole iniziare un nuovo turno
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
         st.session_state.database = pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
@@ -230,7 +228,6 @@ if not st.session_state.database.empty:
         st.rerun()
 
 if not st.session_state.database.empty:
-    # Applica l'ordinamento a 3 livelli prima di mostrare l'editor
     df_ordinato = st.session_state.database.sort_values(by=['Compagnia', 'Categoria', 'Codice']).reset_index(drop=True)
     
     tabella_modificata = st.data_editor(
@@ -239,7 +236,6 @@ if not st.session_state.database.empty:
         num_rows="dynamic"
     )
     
-    # Se l'utente modifica a mano o cancella righe dall'editor, salva subito le modifiche nel CSV
     if not tabella_modificata.equals(df_ordinato):
         st.session_state.database = tabella_modificata
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
