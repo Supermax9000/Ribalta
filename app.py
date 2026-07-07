@@ -53,14 +53,46 @@ PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"
 
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
+    "R9": "R9 - Contenitore Jolly / Pooling",
+    "CZ": "CZ - China Southern Airlines",
     "HO": "HO - Juneyao Air",
+    "AA": "AA - American Airlines",
+    "MS": "MS - Egyptair",
+    "SM": "SM - Air Cairo",
+    "ET": "ET - Ethiopian Airlines",
+    "KE": "KE - Korean Air",
+    "KU": "KU - Kuwait Airways",
+    "KY": "KY - Kunming Airlines",
+    "HU": "HU - Hainan Airlines",
+    "EY": "EY - Etihad Airways",
+    "WY": "WY - Oman Air",
+    "BR": "BR - EVA Air",
+    "CI": "CI - China Airlines",
+    "SK": "SK - SAS",
+    "SV": "SV - Saudi Arabian Airlines",
+    "IR": "IR - Iran Air",
+    "DL": "DL - Delta Air Lines",
+    "NO": "NO - Neos",
+    "AC": "AC - Air Canada",
+    "EN": "EN - Air Dolomiti",
+    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
+    "AI": "AI - Air India",
+    "CX": "CX - Cathay Pacific",
+    "SQ": "SQ - Singapore Airlines",
+    "QR": "QR - Qatar Airways",
+    "TP": "TP - TAP Air Portugal",
+    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
+    "TK": "TK - Turkish Airlines",
+    "UA": "UA - United Airlines",
+    "HY": "HY - Uzbekistan Airways",
+    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
@@ -146,7 +178,9 @@ def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
+        "QKE": "📦 Container Standard ignifugo (Dolly)",
         "AKH": "✈️ Container Basso (A320/A321)",
+        "AKW": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
         "PAG": "🏁 Pallet per Merci Pallettizzate",
@@ -199,8 +233,9 @@ def click_bottone_salva():
         
         st.session_state.campo_codice_pulito = ""
 
-st.title("🧳 Gestione Rapida Contenitori ULD")
-st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
+st.title("🧳 Gestione ULD")
+st.write("Dati salvati con l'orario uff. Roma.")
+st.write("©️by Casamassima")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -245,7 +280,7 @@ st.markdown("---")
 
 conteggio_totale = len(st.session_state.database)
 st.subheader(f"📋 Inventario: {conteggio_totale} ULD")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
+st.caption("💡 Ordinamento: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
