@@ -53,50 +53,21 @@ PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"
 
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
-    "R9": "R9 - Contenitore Jolly / Pooling",
-    "CZ": "CZ - China Southern Airlines",
     "HO": "HO - Juneyao Air",
-    "AA": "AA - American Airlines",
-    "MS": "MS - Egyptair",
-    "SM": "SM - Air Cairo",
-    "ET": "ET - Ethiopian Airlines",
-    "KE": "KE - Korean Air",
-    "KU": "KU - Kuwait Airways",
-    "KY": "KY - Kunming Airlines",
-    "HU": "HU - Hainan Airlines",
-    "EY": "EY - Etihad Airways",
-    "WY": "WY - Oman Air",
-    "BR": "BR - EVA Air",
-    "CI": "CI - China Airlines",
-    "SK": "SK - SAS",
-    "SV": "SV - Saudi Arabian Airlines",
-    "IR": "IR - Iran Air",
-    "DL": "DL - Delta Air Lines",
-    "NO": "NO - Neos",
-    "AC": "AC - Air Canada",
-    "EN": "EN - Air Dolomiti",
-    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
-    "AI": "AI - Air India",
-    "CX": "CX - Cathay Pacific",
-    "SQ": "SQ - Singapore Airlines",
-    "QR": "QR - Qatar Airways",
-    "TP": "TP - TAP Air Portugal",
-    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
-    "TK": "TK - Turkish Airlines",
-    "UA": "UA - United Airlines",
-    "HY": "HY - Uzbekistan Airways",
-    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
 SIGLE_COMPAGNIE = list(DIZIONARIO_COMPAGNIE.keys())
+
+def chiave_ordinamento_naturale(testo):
+    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(testo))]
 
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
@@ -168,13 +139,9 @@ def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
-        "AKC": "📦 Container Standard (LD-1)",
-        "ALF": "🐋 Container Grande (LD-6)",
-        "QKE": "📦 Container Standard (Ignifugo)",
         "AKH": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
-        "DKE": "✈️ Container (non certificato)",
         "PAG": "🏁 Pallet per Merci Pallettizzate",
         "PMC": "📐 Pallet Grande Standard"
     }
@@ -225,8 +192,8 @@ def al_pressione_invio():
         
     st.session_state.campo_input_interattivo = ""
 
-st.title("🧳 Ribalta Contenitori ULD")
-st.write("Dati salvati in automatico-orario uff. Roma.")
+st.title("🧳 Gestione Rapida Contenitori ULD")
+st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -259,15 +226,15 @@ if 'messaggio_errore' in st.session_state:
     del st.session_state.messaggio_errore
 
 st.text_input(
-    "Codice rilevato - INVIO per confermare:", 
+    "Controlla il codice e premi INVIO sulla tastiera per confermare:", 
     key="campo_input_interattivo",
     placeholder="Es: AKE12345AZ",
     on_change=al_pressione_invio
 )
 
 st.markdown("---")
-st.subheader("📋 Inventario Ordinato")
-st.caption("💡 L'ordinamento è: Compagnia ➔ Categoria ➔ Codice.")
+st.subheader("📋 Inventario Modificabile e Ordinato")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
@@ -278,9 +245,8 @@ if not st.session_state.database.empty:
 if not st.session_state.database.empty:
     df_temp = st.session_state.database.copy()
     
-    # 🟢 CORREZIONE SINTASSI: Estrae ed Isola in modo sicuro l'indice 0 della lista numerica
     df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
-    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))[0]) if re.findall(r'\d+', str(x)) else 0)
+    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))) if re.findall(r'\d+', str(x)) else 0)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
     
     df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
@@ -303,11 +269,32 @@ if not st.session_state.database.empty:
         st.download_button(label="📥 Scarica Excel/CSV", data=csv, file_name='inventario_uld_completo.csv', mime='text/csv', use_container_width=True)
     with col_dl2:
         fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
-        testo_report = "--- REPORT INVENTARIO CONTAINER ULD ---\n"
+        
+        # 🟢 NUOVA STRUTTURA DEL REPORT TXT: Impaginazione incolonnata e divisa per Compagnia
+        testo_report = "========================================================================\n"
+        testo_report += "🧳           REPORT INVENTARIO INTRALOGISTICA CONTAINER ULD            🧳\n"
         testo_report += f"Generato il: {datetime.now(fuso_orario_italia).strftime('%Y-%m-%d %H:%M:%S')}\n"
-        testo_report += f"Totale elementi: {len(st.session_state.database)}\n---------------------------------------\n\n"
-        for _, row in st.session_state.database.iterrows():
-            testo_report += f"[{row['Data/Ora Scan']}] {row['Stato']} - {row['Codice']} ({row['Compagnia']})\n ↳ Tipo: {row['Categoria']} | Note: {row['Tipo Danno']}\n---------------------------------------\n"
+        testo_report += f"Totale elementi registrati: {len(st.session_state.database)}\n"
+        testo_report += "========================================================================\n\n"
+        
+        # Estrae l'elenco unico delle compagnie presenti nell'inventario per creare i divisori
+        compagnie_uniche = df_ordinato['Compagnia'].unique()
+        
+        for comp in compagnie_uniche:
+            # Crea un blocco di intestazione visiva per la singola compagnia
+            testo_report += "========================================================================\n"
+            testo_report += f"✈️ COMPAGNIA: {comp}\n"
+            testo_report += "========================================================================\n"
+            # Intestazione delle colonne con spaziature fisse per l'incolonnamento geometrico
+            testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
+            testo_report += "------------------------------------------------------------------------\n"
+            
+            # Isola solo i container appartenenti a questa compagnia
+            df_compagnia = df_ordinato[df_ordinato['Compagnia'] == comp]
+            for _, row in df_compagnia.iterrows():
+                testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
+            testo_report += "\n" # Riga vuota di spazio tra una compagnia e l'altra
+            
         st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
 else:
     st.info("Nessun dato in memoria. Inserisci un codice o scansiona per iniziare.")
