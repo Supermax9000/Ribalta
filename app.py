@@ -15,6 +15,7 @@ import numpy as np
 import re
 import difflib
 import os
+import zoneinfo
 from datetime import datetime
 
 # Nome del file fisico dove verranno memorizzati i dati sul server cloud
@@ -29,12 +30,19 @@ reader = load_ocr()
 
 # FUNZIONE DI CARICAMENTO: Legge il file CSV permanente se esiste, altrimenti ne crea uno vuoto
 def carica_database_permanente():
+    column_order = ['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']
     if os.path.exists(FILE_DATABASE):
         try:
-            return pd.read_csv(FILE_DATABASE)
+            df = pd.read_csv(FILE_DATABASE)
+            if not df.empty and 'Stato' in df.columns:
+                df['Stato'] = df['Stato'].apply(lambda x: "❌" if "Danneggiato" in str(x) or "❌" in str(x) else "✅")
+            for col in column_order:
+                if col not in df.columns:
+                    df[col] = "-"
+            return df[column_order]
         except Exception:
             pass
-    return pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
+    return pd.DataFrame(columns=column_order)
 
 # Inizializza la tabella nella sessione prelevando i dati dal file permanente
 if 'database' not in st.session_state:
@@ -46,43 +54,13 @@ PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
     "HO": "HO - Juneyao Air",
-    "AA": "AA - American Airlines",
-    "MS": "MS - Egyptair",
-    "SM": "SM - Air Cairo",
-    "ET": "ET - Ethiopian Airlines",
-    "KE": "KE - Korean Air",
-    "KU": "KU - Kuwait Airways",
-    "KY": "KY - Kunming Airlines",
-    "HU": "HU - Hainan Airlines",
-    "EY": "EY - Etihad Airways",
-    "WY": "WY - Oman Air",
-    "BR": "BR - EVA Air",
-    "CI": "CI - China Airlines",
-    "SK": "SK - SAS",
-    "SV": "SV - Saudi Arabian Airlines",
-    "IR": "IR - Iran Air",
-    "DL": "DL - Delta Air Lines",
-    "NO": "NO - Neos",
-    "AC": "AC - Air Canada",
-    "EN": "EN - Air Dolomiti",
-    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
-    "AI": "AI - Air India",
-    "CX": "CX - Cathay Pacific",
-    "SQ": "SQ - Singapore Airlines",
-    "QR": "QR - Qatar Airways",
-    "TP": "TP - TAP Air Portugal",
-    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
-    "TK": "TK - Turkish Airlines",
-    "UA": "UA - United Airlines",
-    "HY": "HY - Uzbekistan Airways",
-    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
@@ -94,18 +72,20 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     blocchi_processati = []
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res[0]
-            testo_reale = str(res[1])
+            coordinate_quadrato = res
+            testo_reale = str(res)
             try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
             except Exception:
                 continue
+                
     if not blocchi_processati:
         return []
+        
     blocchi_processati.sort(key=lambda x: x['y_centro'])
     righe, riga_corrente, y_riga_corrente = [], [], -1
     for blocco in blocchi_processati:
@@ -133,13 +113,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri[0]
+                blocco_numerico = numeri
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -156,13 +136,9 @@ def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
-        "AKC": "📦 Container Standard (LD-1)",
-        "ALF": "🐋 Container Grande (LD-6)",
-        "QKE": "📦 Container Standard (Ignifugo)",
         "AKH": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
-        "DKE": "✈️ Container (non certificato)",
         "PAG": "🏁 Pallet per Merci Pallettizzate",
         "PMC": "📐 Pallet Grande Standard"
     }
@@ -184,7 +160,7 @@ def al_pressione_invio():
         nome_compagnia = DIZIONARIO_COMPAGNIE["XX"]
         
     categoria = classifica_container(codice_salvataggio)
-    stato_container = "❌ Danneggiato" if st.session_state.get('check_danno', False) else "✅ Integro"
+    stato_container = "❌" if st.session_state.get('check_danno', False) else "✅"
     testo_danno = st.session_state.get('nota_danno', "") if st.session_state.get('check_danno', False) else "-"
     if not testo_danno: 
         testo_danno = "-"
@@ -195,13 +171,15 @@ def al_pressione_invio():
         if 'messaggio_errore' in st.session_state:
             del st.session_state.messaggio_errore
             
-        ora_attuale = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
+        ora_attuale = datetime.now(fuso_orario_italia).strftime("%Y-%m-%d %H:%M:%S")
+        
         nuovo_record = pd.DataFrame([{
-            'Data/Ora Scan': ora_attuale,
+            'Stato': stato_container,
+            'Compagnia': nome_compagnia,
             'Codice': codice_salvataggio, 
             'Categoria': categoria, 
-            'Compagnia': nome_compagnia,
-            'Stato': stato_container,
+            'Data/Ora Scan': ora_attuale,
             'Tipo Danno': testo_danno
         }])
         
@@ -212,7 +190,7 @@ def al_pressione_invio():
     st.session_state.campo_input_interattivo = ""
 
 st.title("🧳 Gestione Rapida Contenitori ULD")
-st.write("I dati sono salvati in automatico: non andranno persi aggiornando la pagina.")
+st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -253,16 +231,24 @@ st.text_input(
 
 st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice.")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
-        st.session_state.database = pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
+        st.session_state.database = pd.DataFrame(columns=['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno'])
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.rerun()
 
 if not st.session_state.database.empty:
-    df_ordinato = st.session_state.database.sort_values(by=['Compagnia', 'Categoria', 'Codice']).reset_index(drop=True)
+    df_temp = st.session_state.database.copy()
+    
+    # 🟢 CORREZIONE COMPLETA: Inserito l'indice [0] per convertire correttamente il testo in numero intero
+    df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
+    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))[0]) if re.findall(r'\d+', str(x)) else 0)
+    df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
+    
+    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
+    df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
         df_ordinato,
@@ -280,11 +266,28 @@ if not st.session_state.database.empty:
         csv = st.session_state.database.to_csv(index=False).encode('utf-8')
         st.download_button(label="📥 Scarica Excel/CSV", data=csv, file_name='inventario_uld_completo.csv', mime='text/csv', use_container_width=True)
     with col_dl2:
-        testo_report = "--- REPORT INVENTARIO CONTAINER ULD ---\n"
-        testo_report += f"Generato il: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        testo_report += f"Totale elementi: {len(st.session_state.database)}\n---------------------------------------\n\n"
-        for _, row in st.session_state.database.iterrows():
-            testo_report += f"[{row['Data/Ora Scan']}] - {row['Codice']} ({row['Compagnia']})\n ↳ Tipo: {row['Categoria']}\n ↳ Stato: {row['Stato']} | Note: {row['Tipo Danno']}\n---------------------------------------\n"
+        fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
+        
+        testo_report = "========================================================================\n"
+        testo_report += "🧳           REPORT INVENTARIO INTRALOGISTICA CONTAINER ULD            🧳\n"
+        testo_report += f"Generato il: {datetime.now(fuso_orario_italia).strftime('%Y-%m-%d %H:%M:%S')}\n"
+        testo_report += f"Totale elementi registrati: {len(st.session_state.database)}\n"
+        testo_report += "========================================================================\n\n"
+        
+        compagnie_uniche = df_ordinato['Compagnia'].unique()
+        
+        for comp in compagnie_uniche:
+            testo_report += "========================================================================\n"
+            testo_report += f"✈️ COMPAGNIA: {comp}\n"
+            testo_report += "========================================================================\n"
+            testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
+            testo_report += "------------------------------------------------------------------------\n"
+            
+            df_compagnia = df_ordinato[df_ordinato['Compagnia'] == comp]
+            for _, row in df_compagnia.iterrows():
+                testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
+            testo_report += "\n"
+            
         st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
 else:
     st.info("Nessun dato in memoria. Inserisci un codice o scansiona per iniziare.")
