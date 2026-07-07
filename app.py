@@ -66,31 +66,33 @@ DIZIONARIO_COMPAGNIE = {
 
 SIGLE_COMPAGNIE = list(DIZIONARIO_COMPAGNIE.keys())
 
-# 🟢 FUNZIONE DI SUPPORTO PER ORDINAMENTO NATURALE (Separa lettere e numeri per ordinarli come un umano)
 def chiave_ordinamento_naturale(testo):
     return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(testo))]
 
+# 🟢 FUNZIONE CORRETTA: Rimossa la sintassi errata alla riga 89 dividendo l'assegnazione
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res)
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1])
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
             except Exception:
                 continue
-    if not blocks_processed := blocchi_processati:
+                
+    if not blocchi_processati:
         return []
-    blocks_processed.sort(key=lambda x: x['y_centro'])
+        
+    blocchi_processati.sort(key=lambda x: x['y_centro'])
     righe, riga_corrente, y_riga_corrente = [], [], -1
-    for blocco in blocks_processed:
+    for blocco in blocchi_processati:
         if y_riga_corrente == -1:
             y_riga_corrente = blocco['y_centro']
             riga_corrente.append(blocco)
@@ -115,13 +117,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -242,17 +244,14 @@ if not st.session_state.database.empty:
         st.rerun()
 
 if not st.session_state.database.empty:
-    # 🟢 MODIFICATO: Genera una colonna chiave virtuale temporanea per l'ordinamento numerico naturale
     df_da_ordinare = st.session_state.database.copy()
     df_da_ordinare['chiave_codice'] = df_da_ordinare['Codice'].apply(chiave_ordinamento_naturale)
     
-    # Esegue l'ordinamento gerarchico combinato
     df_ordinato = df_da_ordinare.sort_values(
         by=['Compagnia', 'Categoria', 'chiave_codice'], 
         key=lambda x: x if x.name != 'chiave_codice' else None
     ).reset_index(drop=True)
     
-    # Rimuove la colonna temporanea e ripristina la struttura pulita richiesta
     df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
