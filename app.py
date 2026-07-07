@@ -71,7 +71,6 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# 🟢 CORREZIONE COMPLETA: Estrae solo la stringa di testo reale (indice 1) scartando le coordinate geometriche
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -79,12 +78,12 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res[0]
-            testo_reale = str(res[1]).strip()  # 🟢 FIX: Prende solo la parola letta (indice 1) senza metadati
+            coordinate_quadrato = res
+            testo_reale = str(res).strip()
             
             try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
@@ -122,13 +121,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri[0]
+                blocco_numerico = numeri
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -192,7 +191,7 @@ def click_bottone_salva():
             'Tipo Danno': testo_danno
         }])
         
-        st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
+        st.session_state.database = pd.concat([st.session_state.database, nuevo_record], ignore_index=True)
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
         
@@ -241,7 +240,10 @@ if st.session_state.get('campo_codice_pulito', ''):
     st.button("💾 AGGIUNGI ALL'INVENTARIO", use_container_width=True, type="primary", on_click=click_bottone_salva)
 
 st.markdown("---")
-st.subheader("📋 Inventario Modificabile e Ordinato")
+
+# 🟢 MODIFICATO: Calcola il numero effettivo degli elementi per la visualizzazione dinamica
+conteggio_totale = len(st.session_state.database)
+st.subheader(f"📋 Inventario: {conteggio_totale} ULD")
 st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
 
 if not st.session_state.database.empty:
