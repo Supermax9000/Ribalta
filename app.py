@@ -77,14 +77,13 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     blocchi_processati = []
     
     for res in risultati_ocr:
-        # EasyOCR: [ [[x1,y1], [x2,y2], [x3,y3], [x4,y4]], "testo_reale", probabilità ]
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res[0]
-            testo_reale = str(res[1]) # 🟢 RIPRISTINATO: Estrae solo il testo puro all'indice 1
+            coordinate_quadrato = res
+            testo_reale = str(res)
             
             try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
@@ -122,13 +121,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri[0]
+                blocco_numerico = numeri
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -211,7 +210,6 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
         st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
-        # 🟢 FIX: Corretto l'errore di battitura del nome della funzione (aggiunta la 'z' mancante)
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_codice_pulito = codice_da_ocr
@@ -243,7 +241,7 @@ if st.session_state.get('campo_codice_pulito', ''):
 
 st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
+st.caption("💡 L'ordinamento applicato è: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
@@ -258,7 +256,8 @@ if not st.session_state.database.empty:
     df_temp['_num'] = df_temp['Codice'].apply(estrai_numero_codice)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
     
-    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
+    # 🟢 MODIFICATO: Inserito 'Stato' come secondo parametro per spingere le croci rosse (❌) in fondo a ogni compagnia
+    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Stato', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
     df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
@@ -291,13 +290,26 @@ if not st.session_state.database.empty:
             testo_report += "========================================================================\n"
             testo_report += f"✈️ COMPAGNIA: {comp}\n"
             testo_report += "========================================================================\n"
-            testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
-            testo_report += "------------------------------------------------------------------------\n"
             
-            df_compagnia = df_ordinato[df_ordinato['Compagnia'] == comp]
-            for _, row in df_compagnia.iterrows():
-                testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
-            testo_report += "\n"
+            # Sotto-blocco 1: Seleziona ed elenca prima solo i contenitori Integri (✅)
+            df_integri = df_ordinato[(df_ordinato['Compagnia'] == comp) & (df_ordinato['Stato'] == "✅")]
+            if not df_integri.empty:
+                testo_report += f"{'[INTEGRI]':<8}\n"
+                testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
+                testo_report += "------------------------------------------------------------------------\n"
+                for _, row in df_integri.iterrows():
+                    testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
+                testo_report += "\n"
+                
+            # Sotto-blocco 2: Seleziona ed elenca per ultimi solo i contenitori Danneggiati (❌)
+            df_danneggiati = df_ordinato[(df_ordinato['Compagnia'] == comp) & (df_ordinato['Stato'] == "❌")]
+            if not df_danneggiati.empty:
+                testo_report += f"{'[DANNEGGIATI]':<8}\n"
+                testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
+                testo_report += "------------------------------------------------------------------------\n"
+                for _, row in df_danneggiati.iterrows():
+                    testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
+                testo_report += "\n"
             
         st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
 else:
