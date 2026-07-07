@@ -48,6 +48,10 @@ def carica_database_permanente():
 if 'database' not in st.session_state:
     st.session_state.database = carica_database_permanente()
 
+# Memorizza il codice proposto dall'immagine per riempire la casella
+if 'testo_da_inserire' not in st.session_state:
+    st.session_state.testo_da_inserire = ""
+
 # Elenco ufficiale dei prefissi ULD e delle Compagnie Aeree
 PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
 
@@ -77,16 +81,12 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     blocchi_processati = []
     
     for res in risultati_ocr:
-        # 🟢 CORREZIONE CHIRURGICA: Isola solo le coordinate (indice 0) e il testo reale (indice 1)
         if isinstance(res, (list, tuple)) and len(res) >= 2:
             coordinate_quadrato = res[0]
-            testo_reale = str(res[1]) # Prende solo le lettere lette scartando i numeri di posizione
-            
+            testo_reale = str(res[1])
             try:
-                # Estrae le coordinate Y e X dai 4 angoli del rettangolo
                 ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
@@ -123,7 +123,7 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
@@ -153,55 +153,10 @@ def classifica_container(codice):
         "PMC": "📐 Pallet Grande Standard"
     }
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
-def al_pressione_invio():
-    codice_grezzo = st.session_state.campo_input_interattivo.upper().strip()
-    if not codice_grezzo:
-        return
-        
-    sigla_rilevata = codice_grezzo[-2:] if len(codice_grezzo) >= 5 else "XX"
-    if sigla_rilevata not in SIGLE_COMPAGNIE:
-        sigla_rilevata = "XX"
-        
-    if len(codice_grezzo) >= 5 and sigla_rilevata != "XX":
-        codice_salvataggio = codice_grezzo[:-2] + sigla_rilevata
-        nome_compagnia = DIZIONARIO_COMPAGNIE[sigla_rilevata]
-    else:
-        codice_salvataggio = codice_grezzo
-        nome_compagnia = DIZIONARIO_COMPAGNIE["XX"]
-        
-    categoria = classifica_container(codice_salvataggio)
-    stato_container = "❌" if st.session_state.get('check_danno', False) else "✅"
-    testo_danno = st.session_state.get('nota_danno', "") if st.session_state.get('check_danno', False) else "-"
-    if not testo_danno: 
-        testo_danno = "-"
-
-    if codice_salvataggio in st.session_state.database['Codice'].values:
-        st.session_state.messaggio_errore = f"🚨 Il contenitore **{codice_salvataggio}** è già registrato!"
-    else:
-        if 'messaggio_errore' in st.session_state:
-            del st.session_state.messaggio_errore
-            
-        fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
-        ora_attuale = datetime.now(fuso_orario_italia).strftime("%Y-%m-%d %H:%M:%S")
-        
-        nuovo_record = pd.DataFrame([{
-            'Stato': stato_container,
-            'Compagnia': nome_compagnia,
-            'Codice': codice_salvataggio, 
-            'Categoria': categoria, 
-            'Data/Ora Scan': ora_attuale,
-            'Tipo Danno': testo_danno
-        }])
-        
-        st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
-        st.session_state.database.to_csv(FILE_DATABASE, index=False)
-        st.toast(f"💾 {codice_salvataggio} salvato permanentemente!")
-        
-    st.session_state.campo_input_interattivo = ""
-
 st.title("🧳 Gestione Rapida Contenitori ULD")
 st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
+# Sezione Opzionale dello Scanner Ottico
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
     img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
@@ -214,8 +169,8 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
             risultati_ocr = reader.readtext(opencv_img)
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
-            st.session_state.campo_input_interattivo = codice_da_ocr
-            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e primi INVIO per confermare.")
+            st.session_state.testo_da_inserire = codice_da_ocr
+            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi il tasto di salvataggio.")
         else:
             st.warning("Impossibile isolare un codice dall'immagine.")
 
@@ -232,12 +187,53 @@ if 'messaggio_errore' in st.session_state:
     st.error(st.session_state.messaggio_errore)
     del st.session_state.messaggio_errore
 
-st.text_input(
-    "Controlla il codice e premi INVIO sulla tastiera per confermare:", 
-    key="campo_input_interattivo",
-    placeholder="Es: AKE12345AZ",
-    on_change=al_pressione_invio
-)
+# Casella di testo sincronizzata
+codice_input = st.text_input(
+    "Controlla il codice o digitalo a mano:", 
+    value=st.session_state.testo_da_inserire,
+    placeholder="Es: AKE12345AZ"
+).upper().strip()
+
+# 🟢 IL FIX DEFINITIVO: Pulsante esplicito posizionato sotto la casella per forzare la memorizzazione istantanea
+if codice_input:
+    if st.button("💾 AGGIUNGI ALL'INVENTARIO", use_container_width=True, type="primary"):
+        sigla_rilevata = codice_input[-2:] if len(codice_input) >= 5 else "XX"
+        if sigla_rilevata not in SIGLE_COMPAGNIE:
+            sigla_rilevata = "XX"
+            
+        if len(codice_input) >= 5 and sigla_rilevata != "XX":
+            codice_salvataggio = codice_input[:-2] + sigla_rilevata
+            nome_compagnia = DIZIONARIO_COMPAGNIE[sigla_rilevata]
+        else:
+            codice_salvataggio = codice_input
+            nome_compagnia = DIZIONARIO_COMPAGNIE["XX"]
+            
+        categoria = classifica_container(codice_salvataggio)
+        stato_container = "❌" if is_danneggiato else "✅"
+        testo_danno = tipo_danno if is_danneggiato else "-"
+
+        if codice_salvataggio in st.session_state.database['Codice'].values:
+            st.error(f"🚨 Il contenitore **{codice_salvataggio}** è già registrato!")
+        else:
+            fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
+            ora_attuale = datetime.now(fuso_orario_italia).strftime("%Y-%m-%d %H:%M:%S")
+            
+            nuovo_record = pd.DataFrame([{
+                'Stato': stato_container,
+                'Compagnia': nome_compagnia,
+                'Codice': codice_salvataggio, 
+                'Categoria': categoria, 
+                'Data/Ora Scan': ora_attuale,
+                'Tipo Danno': testo_danno
+            }])
+            
+            st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
+            st.session_state.database.to_csv(FILE_DATABASE, index=False)
+            st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
+            
+            # Svuota i campi e rinfresca la schermata pulita
+            st.session_state.testo_da_inserire = ""
+            st.rerun()
 
 st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
