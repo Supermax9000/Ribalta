@@ -71,18 +71,22 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# 🟢 CORRETTO: Sostituito 'blocks_processed' errato con la variabile italiana corretta alla riga 91
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
+    
     for res in risultati_ocr:
+        # 🟢 CORREZIONE CHIRURGICA: Isola solo le coordinate (indice 0) e il testo reale (indice 1)
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res)
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1]) # Prende solo le lettere lette scartando i numeri di posizione
+            
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                # Estrae le coordinate Y e X dai 4 angoli del rettangolo
+                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
@@ -125,7 +129,7 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -211,7 +215,7 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_input_interattivo = codice_da_ocr
-            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi INVIO per confermare.")
+            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e primi INVIO per confermare.")
         else:
             st.warning("Impossibile isolare un codice dall'immagine.")
 
