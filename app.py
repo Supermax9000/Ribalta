@@ -16,7 +16,7 @@ import re
 import difflib
 import os
 import zoneinfo
-from datetime import datetime  # 🟢 FIX: Ripristinata l'importazione fondamentale di datetime
+from datetime import datetime
 
 # Nome del file fisico dove verranno memorizzati i dati sul server cloud
 FILE_DATABASE = "inventario_permanente.csv"
@@ -30,12 +30,21 @@ reader = load_ocr()
 
 # FUNZIONE DI CARICAMENTO: Legge il file CSV permanente se esiste, altrimenti ne crea uno vuoto
 def carica_database_permanente():
+    column_order = ['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']
     if os.path.exists(FILE_DATABASE):
         try:
-            return pd.read_csv(FILE_DATABASE)
+            df = pd.read_csv(FILE_DATABASE)
+            # Se nel file vecchio c'erano ancora le scritte testuali, le pulisce al volo per tenere solo le icone
+            if not df.empty and 'Stato' in df.columns:
+                df['Stato'] = df['Stato'].apply(lambda x: "❌" if "Danneggiato" in str(x) or "❌" in str(x) else "✅")
+            # Garantisce che tutte le colonne esistano nell'ordine corretto
+            for col in column_order:
+                if col not in df.columns:
+                    df[col] = "-"
+            return df[column_order]
         except Exception:
             pass
-    return pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
+    return pd.DataFrame(columns=column_order)
 
 # Inizializza la tabella nella sessione prelevando i dati dal file permanente
 if 'database' not in st.session_state:
@@ -151,7 +160,9 @@ def al_pressione_invio():
         nome_compagnia = DIZIONARIO_COMPAGNIE["XX"]
         
     categoria = classifica_container(codice_salvataggio)
-    stato_container = "❌ Danneggiato" if st.session_state.get('check_danno', False) else "✅ Integro"
+    
+    # 🟢 MODIFICATO: Salva solo l'icona emoji pulita senza stringhe di testo descrittive
+    stato_container = "❌" if st.session_state.get('check_danno', False) else "✅"
     testo_danno = st.session_state.get('nota_danno', "") if st.session_state.get('check_danno', False) else "-"
     if not testo_danno: 
         testo_danno = "-"
@@ -162,16 +173,16 @@ def al_pressione_invio():
         if 'messaggio_errore' in st.session_state:
             del st.session_state.messaggio_errore
             
-        # Calcolo fuso orario italiano corretto
         fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
         ora_attuale = datetime.now(fuso_orario_italia).strftime("%Y-%m-%d %H:%M:%S")
         
+        # Genera il record rispettando la sequenza delle colonne richiesta
         nuovo_record = pd.DataFrame([{
-            'Data/Ora Scan': ora_attuale,
+            'Stato': stato_container,
+            'Compagnia': nome_compagnia,
             'Codice': codice_salvataggio, 
             'Categoria': categoria, 
-            'Compagnia': nome_compagnia,
-            'Stato': stato_container,
+            'Data/Ora Scan': ora_attuale,
             'Tipo Danno': testo_danno
         }])
         
@@ -227,12 +238,16 @@ st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria 
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
-        st.session_state.database = pd.DataFrame(columns=['Data/Ora Scan', 'Codice', 'Categoria', 'Compagnia', 'Stato', 'Tipo Danno'])
+        st.session_state.database = pd.DataFrame(columns=['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno'])
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.rerun()
 
 if not st.session_state.database.empty:
+    # Applica l'ordinamento strutturale richiesto
     df_ordinato = st.session_state.database.sort_values(by=['Compagnia', 'Categoria', 'Codice']).reset_index(drop=True)
+    
+    # 🟢 MODIFICATO: Forza la disposizione orizzontale esatta delle colonne richieste
+    df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
         df_ordinato,
@@ -255,7 +270,7 @@ if not st.session_state.database.empty:
         testo_report += f"Generato il: {datetime.now(fuso_orario_italia).strftime('%Y-%m-%d %H:%M:%S')}\n"
         testo_report += f"Totale elementi: {len(st.session_state.database)}\n---------------------------------------\n\n"
         for _, row in st.session_state.database.iterrows():
-            testo_report += f"[{row['Data/Ora Scan']}] - {row['Codice']} ({row['Compagnia']})\n ↳ Tipo: {row['Categoria']}\n ↳ Stato: {row['Stato']} | Note: {row['Tipo Danno']}\n---------------------------------------\n"
+            testo_report += f"[{row['Data/Ora Scan']}] {row['Stato']} - {row['Codice']} ({row['Compagnia']})\n ↳ Tipo: {row['Categoria']} | Note: {row['Tipo Danno']}\n---------------------------------------\n"
         st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
 else:
     st.info("Nessun dato in memoria. Inserisci un codice o scansiona per iniziare.")
