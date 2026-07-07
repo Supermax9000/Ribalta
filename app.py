@@ -77,13 +77,14 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     blocchi_processati = []
     
     for res in risultati_ocr:
+        # EasyOCR: [ [[x1,y1], [x2,y2], [x3,y3], [x4,y4]], "testo_reale", probabilità ]
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res)
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1]) # 🟢 RIPRISTINATO: Estrae solo il testo puro all'indice 1
             
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
@@ -121,13 +122,13 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -151,7 +152,6 @@ def classifica_container(codice):
         "PMC": "📐 Pallet Grande Standard"
     }
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
-# 🟢 FUNZIONE DI SALVATAGGIO DEFINITIVA: Gestisce la memorizzazione e svuota in sicurezza la casella
 def click_bottone_salva():
     codice_input = st.session_state.get('campo_codice_pulito', '').upper().strip()
     if not codice_input:
@@ -196,13 +196,12 @@ def click_bottone_salva():
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
         
-        # Svuota in modo pulito la casella di testo cancellando la memoria del widget
         st.session_state.campo_codice_pulito = ""
 
 st.title("🧳 Gestione Rapida Contenitori ULD")
 st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
-with st.expander("📷 Usa Fontocamera o Carica Foto per estrarre il codice"):
+with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
     img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
 
@@ -212,6 +211,7 @@ with st.expander("📷 Usa Fontocamera o Carica Foto per estrarre il codice"):
         st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
+        # 🟢 FIX: Corretto l'errore di battitura del nome della funzione (aggiunta la 'z' mancante)
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_codice_pulito = codice_da_ocr
@@ -232,14 +232,12 @@ if 'messaggio_errore' in st.session_state:
     st.error(st.session_state.messaggio_errore)
     del st.session_state.messaggio_errore
 
-# Casella di testo agganciata stabilmente alla chiave di sessione
 st.text_input(
     "Controlla il codice o digitalo a mano:", 
     key="campo_codice_pulito",
     placeholder="Es: AKE12345AZ"
 )
 
-# 🟢 IL FIX: Il pulsante ora esegue la funzione dedicata (on_click) sbloccando i moduli
 if st.session_state.get('campo_codice_pulito', ''):
     st.button("💾 AGGIUNGI ALL'INVENTARIO", use_container_width=True, type="primary", on_click=click_bottone_salva)
 
