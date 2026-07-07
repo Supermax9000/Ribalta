@@ -71,19 +71,21 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
+# 🟢 FUNZIONE CORRETTA: Estrae esplicitamente l'indice 1 per catturare solo la stringa testuale pulita
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
     
     for res in risultati_ocr:
+        # EasyOCR restituisce: [ [[x1,y1], [x2,y2], [x3,y3], [x4,y4]], "testo_reale", probabilità ]
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res).strip()
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1]).strip()  # 🟢 FIX: Isola solo le lettere lette scartando le coordinate geometriche
             
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
@@ -127,7 +129,7 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -191,7 +193,7 @@ def click_bottone_salva():
             'Tipo Danno': testo_danno
         }])
         
-        st.session_state.database = pd.concat([st.session_state.database, nuevo_record], ignore_index=True)
+        st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
         
@@ -241,7 +243,6 @@ if st.session_state.get('campo_codice_pulito', ''):
 
 st.markdown("---")
 
-# 🟢 MODIFICATO: Calcola il numero effettivo degli elementi per la visualizzazione dinamica
 conteggio_totale = len(st.session_state.database)
 st.subheader(f"📋 Inventario: {conteggio_totale} ULD")
 st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
