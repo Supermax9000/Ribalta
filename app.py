@@ -68,11 +68,10 @@ SIGLE_COMPAGNIE = list(DIZIONARIO_COMPAGNIE.keys())
 
 # FUNZIONE DI SUPPORTO PER ORDINAMENTO NATURALE SICURO
 def estrai_numero_codice(codice):
-    # Isola solo i caratteri numerici consecutivi all'interno della stringa
     cifre = "".join(re.findall(r'\d+', str(codice)))
-    # Se ci sono cifre le converte in numero reale, altrimenti restituisce zero per evitare crash
     return int(cifre) if cifre else 0
 
+# 🟢 CORRETTO: Sostituito 'blocks_processed' errato con la variabile italiana corretta alla riga 91
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -249,7 +248,6 @@ if not st.session_state.database.empty:
 if not st.session_state.database.empty:
     df_temp = st.session_state.database.copy()
     
-    # 🟢 APPLICAZIONE CHIAVE SICURA: Isola lettere e numeri usando la nuova funzione protetta
     df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
     df_temp['_num'] = df_temp['Codice'].apply(estrai_numero_codice)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
