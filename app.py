@@ -34,10 +34,8 @@ def carica_database_permanente():
     if os.path.exists(FILE_DATABASE):
         try:
             df = pd.read_csv(FILE_DATABASE)
-            # Se nel file vecchio c'erano ancora le scritte testuali, le pulisce al volo per tenere solo le icone
             if not df.empty and 'Stato' in df.columns:
                 df['Stato'] = df['Stato'].apply(lambda x: "❌" if "Danneggiato" in str(x) or "❌" in str(x) else "✅")
-            # Garantisce che tutte le colonne esistano nell'ordine corretto
             for col in column_order:
                 if col not in df.columns:
                     df[col] = "-"
@@ -68,6 +66,10 @@ DIZIONARIO_COMPAGNIE = {
 
 SIGLE_COMPAGNIE = list(DIZIONARIO_COMPAGNIE.keys())
 
+# 🟢 FUNZIONE DI SUPPORTO PER ORDINAMENTO NATURALE (Separa lettere e numeri per ordinarli come un umano)
+def chiave_ordinamento_naturale(testo):
+    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(testo))]
+
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -84,11 +86,11 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
             except Exception:
                 continue
-    if not blocchi_processati:
+    if not blocks_processed := blocchi_processati:
         return []
-    blocchi_processati.sort(key=lambda x: x['y_centro'])
+    blocks_processed.sort(key=lambda x: x['y_centro'])
     righe, riga_corrente, y_riga_corrente = [], [], -1
-    for blocco in blocchi_processati:
+    for blocco in blocks_processed:
         if y_riga_corrente == -1:
             y_riga_corrente = blocco['y_centro']
             riga_corrente.append(blocco)
@@ -160,8 +162,6 @@ def al_pressione_invio():
         nome_compagnia = DIZIONARIO_COMPAGNIE["XX"]
         
     categoria = classifica_container(codice_salvataggio)
-    
-    # 🟢 MODIFICATO: Salva solo l'icona emoji pulita senza stringhe di testo descrittive
     stato_container = "❌" if st.session_state.get('check_danno', False) else "✅"
     testo_danno = st.session_state.get('nota_danno', "") if st.session_state.get('check_danno', False) else "-"
     if not testo_danno: 
@@ -176,7 +176,6 @@ def al_pressione_invio():
         fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
         ora_attuale = datetime.now(fuso_orario_italia).strftime("%Y-%m-%d %H:%M:%S")
         
-        # Genera il record rispettando la sequenza delle colonne richiesta
         nuovo_record = pd.DataFrame([{
             'Stato': stato_container,
             'Compagnia': nome_compagnia,
@@ -234,7 +233,7 @@ st.text_input(
 
 st.markdown("---")
 st.subheader("📋 Inventario Modificabile e Ordinato")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice.")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
@@ -243,10 +242,17 @@ if not st.session_state.database.empty:
         st.rerun()
 
 if not st.session_state.database.empty:
-    # Applica l'ordinamento strutturale richiesto
-    df_ordinato = st.session_state.database.sort_values(by=['Compagnia', 'Categoria', 'Codice']).reset_index(drop=True)
+    # 🟢 MODIFICATO: Genera una colonna chiave virtuale temporanea per l'ordinamento numerico naturale
+    df_da_ordinare = st.session_state.database.copy()
+    df_da_ordinare['chiave_codice'] = df_da_ordinare['Codice'].apply(chiave_ordinamento_naturale)
     
-    # 🟢 MODIFICATO: Forza la disposizione orizzontale esatta delle colonne richieste
+    # Esegue l'ordinamento gerarchico combinato
+    df_ordinato = df_da_ordinare.sort_values(
+        by=['Compagnia', 'Categoria', 'chiave_codice'], 
+        key=lambda x: x if x.name != 'chiave_codice' else None
+    ).reset_index(drop=True)
+    
+    # Rimuove la colonna temporanea e ripristina la struttura pulita richiesta
     df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
