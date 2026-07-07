@@ -53,6 +53,8 @@ PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"
 
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
+    "R9": "R9 - Contenitore Jolly / Pooling",
+    "CZ": "CZ - China Southern Airlines",
     "HO": "HO - Juneyao Air",
     "AA": "AA - American Airlines",
     "MS": "MS - Egyptair",
