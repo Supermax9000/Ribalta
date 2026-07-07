@@ -71,16 +71,17 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# FUNZIONE GEOMETRICA CORRETTA: Sistema l'estrazione prendendo solo la stringa testuale pulita
+# FUNZIONE GEOMETRICA CORRETTA: Isola chirurgicamente la stringa testuale all'indice 1
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
     
     for res in risultati_ocr:
+        # EasyOCR restituisce: [ [[x1,y1], [x2,y2], [x3,y3], [x4,y4]], "testo_reale", probabilità ]
         if isinstance(res, (list, tuple)) and len(res) >= 2:
             coordinate_quadrato = res[0]
-            testo_reale = str(res[1]).strip()  # 🟢 FIX CHIRURGICO: Prende solo l'indice 1 (testo puro) scartando le coordinate geometriche
+            testo_reale = str(res[1]).strip()  # 🟢 FIX CHIRURGICO: Estrae solo la stringa di testo reale scartando i metadati geometrici
             
             try:
                 ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
@@ -211,7 +212,6 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
         st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
-        # 🟢 FIX: Aggiunta la 'z' corretta nel nome della funzione per riattivare la fotocamera senza crash
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_codice_pulito = codice_da_ocr
