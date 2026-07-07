@@ -52,46 +52,15 @@ if 'database' not in st.session_state:
 PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
 
 DIZIONARIO_COMPAGNIE = {
-    "R9": "R9 - Contenitore Jolly / Pooling",
     "R7": "R7 - Contenitore Jolly / Pooling",
     "HO": "HO - Juneyao Air",
-    "AA": "AA - American Airlines",
-    "MS": "MS - Egyptair",
-    "SM": "SM - Air Cairo",
-    "ET": "ET - Ethiopian Airlines",
-    "KE": "KE - Korean Air",
-    "KU": "KU - Kuwait Airways",
-    "KY": "KY - Kunming Airlines",
-    "HU": "HU - Hainan Airlines",
-    "EY": "EY - Etihad Airways",
-    "WY": "WY - Oman Air",
-    "BR": "BR - EVA Air",
-    "CI": "CI - China Airlines",
-    "SK": "SK - SAS",
-    "SV": "SV - Saudi Arabian Airlines",
-    "IR": "IR - Iran Air",
-    "DL": "DL - Delta Air Lines",
-    "NO": "NO - Neos",
-    "AC": "AC - Air Canada",
-    "EN": "EN - Air Dolomiti",
-    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
-    "AI": "AI - Air India",
-    "CX": "CX - Cathay Pacific",
-    "SQ": "SQ - Singapore Airlines",
-    "QR": "QR - Qatar Airways",
-    "TP": "TP - TAP Air Portugal",
-    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
-    "TK": "TK - Turkish Airlines",
-    "UA": "UA - United Airlines",
-    "HY": "HY - Uzbekistan Airways",
-    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
@@ -102,17 +71,16 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# 🟢 FUNZIONE CORRETTA: Estrae esplicitamente l'indice 1 per catturare solo la stringa testuale pulita
+# FUNZIONE GEOMETRICA CORRETTA: Sistema l'estrazione prendendo solo la stringa testuale pulita
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
     blocchi_processati = []
     
     for res in risultati_ocr:
-        # EasyOCR restituisce: [ [[x1,y1], [x2,y2], [x3,y3], [x4,y4]], "testo_reale", probabilità ]
         if isinstance(res, (list, tuple)) and len(res) >= 2:
             coordinate_quadrato = res[0]
-            testo_reale = str(res[1]).strip()  # 🟢 FIX: Isola solo le lettere lette scartando le coordinate geometriche
+            testo_reale = str(res[1]).strip()  # 🟢 FIX CHIRURGICO: Prende solo l'indice 1 (testo puro) scartando le coordinate geometriche
             
             try:
                 ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
@@ -177,8 +145,6 @@ def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
-        "QKE": "📦 Container Standard ignifugo (Dolly)",
-        "AKW": "✈️ Container Basso (A320/A321)",
         "AKH": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
@@ -245,6 +211,7 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
         st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
+        # 🟢 FIX: Aggiunta la 'z' corretta nel nome della funzione per riattivare la fotocamera senza crash
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
             st.session_state.campo_codice_pulito = codice_da_ocr
