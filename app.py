@@ -54,43 +54,13 @@ PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
     "HO": "HO - Juneyao Air",
-    "AA": "AA - American Airlines",
-    "MS": "MS - Egyptair",
-    "SM": "SM - Air Cairo",
-    "ET": "ET - Ethiopian Airlines",
-    "KE": "KE - Korean Air",
-    "KU": "KU - Kuwait Airways",
-    "KY": "KY - Kunming Airlines",
-    "HU": "HU - Hainan Airlines",
-    "EY": "EY - Etihad Airways",
-    "WY": "WY - Oman Air",
-    "BR": "BR - EVA Air",
-    "CI": "CI - China Airlines",
-    "SK": "SK - SAS",
-    "SV": "SV - Saudi Arabian Airlines",
-    "IR": "IR - Iran Air",
-    "DL": "DL - Delta Air Lines",
-    "NO": "NO - Neos",
-    "AC": "AC - Air Canada",
-    "EN": "EN - Air Dolomiti",
-    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
-    "AI": "AI - Air India",
-    "CX": "CX - Cathay Pacific",
-    "SQ": "SQ - Singapore Airlines",
-    "QR": "QR - Qatar Airways",
-    "TP": "TP - TAP Air Portugal",
-    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
-    "TK": "TK - Turkish Airlines",
-    "UA": "UA - United Airlines",
-    "HY": "HY - Uzbekistan Airways",
-    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
@@ -165,9 +135,13 @@ def estrai_e_pulisci_uld(lista_righe):
 def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
-    "AKE": "contenitore standard",
-    "AKH": "barchetta",
-}
+        "AKE": "📦 Container Standard (Dolly)",
+        "AKH": "✈️ Container Basso (A320/A321)",
+        "AMU": "🐋 Container Grande (Main Deck)",
+        "DPE": "📦 Container Profilato Standard (LD3)",
+        "PAG": "🏁 Pallet per Merci Pallettizzate",
+        "PMC": "📐 Pallet Grande Standard"
+    }
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
 def al_pressione_invio():
     codice_grezzo = st.session_state.campo_input_interattivo.upper().strip()
@@ -215,8 +189,8 @@ def al_pressione_invio():
         
     st.session_state.campo_input_interattivo = ""
 
-st.title("🧳 Gestione Ribalta ULD")
-st.write("Dati in automatico - orario uff. Roma. (by Casamassima)")
+st.title("🧳 Gestione Rapida Contenitori ULD")
+st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -249,15 +223,15 @@ if 'messaggio_errore' in st.session_state:
     del st.session_state.messaggio_errore
 
 st.text_input(
-    "INVIO per confermare:", 
+    "Controlla il codice e premi INVIO sulla tastiera per confermare:", 
     key="campo_input_interattivo",
     placeholder="Es: AKE12345AZ",
     on_change=al_pressione_invio
 )
 
 st.markdown("---")
-st.subheader("📋 Inventario Ordinato")
-st.caption("💡 Ordinamento: Compagnia ➔ Categoria ➔ Codice.")
+st.subheader("📋 Inventario Modificabile e Ordinato")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
