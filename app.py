@@ -135,13 +135,47 @@ def estrai_e_pulisci_uld(lista_righe):
 def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
-        "AKE": "📦 Container Standard (Dolly)",
-        "AKH": "✈️ Container Basso (A320/A321)",
-        "AMU": "🐋 Container Grande (Main Deck)",
-        "DPE": "📦 Container Profilato Standard (LD3)",
-        "PAG": "🏁 Pallet per Merci Pallettizzate",
-        "PMC": "📐 Pallet Grande Standard"
-    }
+        "R7": "R7 - Contenitore Jolly / Pooling",
+    "HO": "HO - Juneyao Air",
+    "AA": "AA - American Airlines",
+    "MS": "MS - Egyptair",
+    "SM": "SM - Air Cairo",
+    "ET": "ET - Ethiopian Airlines",
+    "KE": "KE - Korean Air",
+    "KU": "KU - Kuwait Airways",
+    "KY": "KY - Kunming Airlines",
+    "HU": "HU - Hainan Airlines",
+    "EY": "EY - Etihad Airways",
+    "WY": "WY - Oman Air",
+    "BR": "BR - EVA Air",
+    "CI": "CI - China Airlines",
+    "SK": "SK - SAS",
+    "SV": "SV - Saudi Arabian Airlines",
+    "IR": "IR - Iran Air",
+    "DL": "DL - Delta Air Lines",
+    "NO": "NO - Neos",
+    "AC": "AC - Air Canada",
+    "EN": "EN - Air Dolomiti",
+    "UX": "UX - Air Europa",
+    "CA": "CA - Air China",
+    "AI": "AI - Air India",
+    "CX": "CX - Cathay Pacific",
+    "SQ": "SQ - Singapore Airlines",
+    "QR": "QR - Qatar Airways",
+    "TP": "TP - TAP Air Portugal",
+    "LY": "LY - El Al Israel Airlines",
+    "MU": "MU - China Eastern",
+    "AZ": "AZ - ITA Airways",
+    "LH": "LH - Lufthansa",
+    "AF": "AF - Air France",
+    "EK": "EK - Emirates",
+    "QR": "QR - Qatar Airways",
+    "TK": "TK - Turkish Airlines",
+    "UA": "UA - United Airlines",
+    "HY": "HY - Uzbekistan Airways",
+    "VN": "VN - Vietnam Airlines",
+    "XX": "XX - Sconosciuta / Altro"
+}
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
 def al_pressione_invio():
     codice_grezzo = st.session_state.campo_input_interattivo.upper().strip()
