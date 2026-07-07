@@ -240,20 +240,14 @@ if not st.session_state.database.empty:
         st.rerun()
 
 if not st.session_state.database.empty:
-    # 🟢 SOLUZIONE DEFINITIVA E ROBUSTA PER ORDINAMENTO NATURALE
     df_temp = st.session_state.database.copy()
     
-    # Estrae il prefisso testuale del codice (es: AKH)
+    # 🟢 CORREZIONE SINTASSI: Estrae ed Isola in modo sicuro l'indice 0 della lista numerica
     df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
-    # Estrae la parte numerica centrale (es: 12 o 123456) convertendola in numero REALE per ordinarlo bene
-    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))) if re.findall(r'\d+', str(x)) else 0)
-    # Estrae il suffisso finale (es: QR)
+    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))[0]) if re.findall(r'\d+', str(x)) else 0)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
     
-    # Esegue l'ordinamento in base ai valori estratti
     df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
-    
-    # Ripristina solo le colonne visibili richieste nell'ordine corretto
     df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
