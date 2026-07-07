@@ -71,12 +71,14 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
         return []
     blocchi_processati = []
     for res in risultati_ocr:
-        if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res
-            testo_reale = str(res)
+        # EasyOCR restituisce una tupla: (coordinate_scatola, testo, confidenza)
+        if isinstance(res, tuple) and len(res) >= 2:
+            coordinate_quadrato = res[0]
+            testo_reale = str(res[1])
             try:
-                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                # Estragghi i punti corretti dall'array bidimensionale delle coordinate [[x1,y1], [x2,y2]...]
+                ys = [float(punto[1]) for punto in coordinate_quadrato]
+                xs = [float(punto[0]) for punto in coordinate_quadrato]
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
                     blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
@@ -113,13 +115,14 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_riga = riga_pulita[3:]
             if prefisso_rilevato not in PREFISSI_VALIDI:
                 corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
+                # Estrae la stringa singola dalla lista se trovata, altrimenti mantiene l'originale
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
             else:
                 prefisso_finale = prefisso_rilevato
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri
+                blocco_numerico = numeri[0]  # Seleziona la prima stringa numerica valida
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -143,6 +146,7 @@ def classifica_container(codice):
         "PMC": "📐 Pallet Grande Standard"
     }
     return dizionario_categorie.get(prefisso, "❓ Altro / Non Specificato")
+
 def al_pressione_invio():
     codice_grezzo = st.session_state.campo_input_interattivo.upper().strip()
     if not codice_grezzo:
@@ -183,7 +187,7 @@ def al_pressione_invio():
             'Tipo Danno': testo_danno
         }])
         
-        st.session_state.database = pd.concat([st.session_state.database, nuovo_record], ignore_index=True)
+        st.session_state.database = pd.concat([st.session_state.database, nuvovo_record if 'nuvovo_record' in locals() else nuovo_record], ignore_index=True)
         st.session_state.database.to_csv(FILE_DATABASE, index=False)
         st.toast(f"💾 {codice_salvataggio} salvato permanentemente!")
         
@@ -194,100 +198,8 @@ st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Rom
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
-    img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
-
-    if img_file is not None:
-        file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
-        opencv_img = cv2.imdecode(file_bytes, 1)
-        st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
-        with st.spinner("Lettura ottica del testo..."):
-            risultati_ocr = reader.readtext(opencv_img)
-        codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
-        if codice_da_ocr:
-            st.session_state.campo_input_interattivo = codice_da_ocr
-            st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi INVIO per confermare.")
-        else:
-            st.warning("Impossibile isolare un codice dall'immagine.")
-
-st.markdown("---")
-st.subheader("📝 Inserimento Diretto")
-
-col_stato1, col_stato2 = st.columns(2)
-with col_stato1:
-    is_danneggiato = st.checkbox("Segnala come DANNEGGIATO", key='check_danno')
-with col_stato2:
-    tipo_danno = st.text_input("Note Danno (opzionale):", key='nota_danno', disabled=not is_danneggiato)
-
-if 'messaggio_errore' in st.session_state:
-    st.error(st.session_state.messaggio_errore)
-    del st.session_state.messaggio_errore
-
-st.text_input(
-    "Controlla il codice e premi INVIO sulla tastiera per confermare:", 
-    key="campo_input_interattivo",
-    placeholder="Es: AKE12345AZ",
-    on_change=al_pressione_invio
-)
-
-st.markdown("---")
-st.subheader("📋 Inventario Modificabile e Ordinato")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
-
-if not st.session_state.database.empty:
-    if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
-        st.session_state.database = pd.DataFrame(columns=['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno'])
-        st.session_state.database.to_csv(FILE_DATABASE, index=False)
-        st.rerun()
-
-if not st.session_state.database.empty:
-    df_temp = st.session_state.database.copy()
     
-    # 🟢 CORREZIONE COMPLETA: Inserito l'indice [0] per convertire correttamente il testo in numero intero
-    df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
-    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))[0]) if re.findall(r'\d+', str(x)) else 0)
-    df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
-    
-    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
-    df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
-    
-    tabella_modificata = st.data_editor(
-        df_ordinato,
-        use_container_width=True,
-        num_rows="dynamic"
-    )
-    
-    if not tabella_modificata.equals(df_ordinato):
-        st.session_state.database = tabella_modificata
-        st.session_state.database.to_csv(FILE_DATABASE, index=False)
-        st.rerun()
-    
-    col_dl1, col_dl2 = st.columns(2)
-    with col_dl1:
-        csv = st.session_state.database.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 Scarica Excel/CSV", data=csv, file_name='inventario_uld_completo.csv', mime='text/csv', use_container_width=True)
-    with col_dl2:
-        fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
-        
-        testo_report = "========================================================================\n"
-        testo_report += "🧳           REPORT INVENTARIO INTRALOGISTICA CONTAINER ULD            🧳\n"
-        testo_report += f"Generato il: {datetime.now(fuso_orario_italia).strftime('%Y-%m-%d %H:%M:%S')}\n"
-        testo_report += f"Totale elementi registrati: {len(st.session_state.database)}\n"
-        testo_report += "========================================================================\n\n"
-        
-        compagnie_uniche = df_ordinato['Compagnia'].unique()
-        
-        for comp in compagnie_uniche:
-            testo_report += "========================================================================\n"
-            testo_report += f"✈️ COMPAGNIA: {comp}\n"
-            testo_report += "========================================================================\n"
-            testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
-            testo_report += "------------------------------------------------------------------------\n"
-            
-            df_compagnia = df_ordinato[df_ordinato['Compagnia'] == comp]
-            for _, row in df_compagnia.iterrows():
-                testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
-            testo_report += "\n"
-            
-        st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
-else:
-    st.info("Nessun dato in memoria. Inserisci un codice o scansiona per iniziare.")
+    if modalita == "Carica file immagine (JPG/PNG)":
+        img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"])
+    else:
+        img_file = st.camera_input("Scatta una foto al codice ULD")
