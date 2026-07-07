@@ -223,8 +223,8 @@ def al_pressione_invio():
         
     st.session_state.campo_input_interattivo = ""
 
-st.title("🧳 Gestione Rapida Contenitori ULD")
-st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
+st.title("🧳 Gestione Ribalta ULD")
+st.write("Dati in automatico - orario uff. Roma. (by Casamassima)")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -257,15 +257,15 @@ if 'messaggio_errore' in st.session_state:
     del st.session_state.messaggio_errore
 
 st.text_input(
-    "Controlla il codice e premi INVIO sulla tastiera per confermare:", 
+    "INVIO per confermare:", 
     key="campo_input_interattivo",
     placeholder="Es: AKE12345AZ",
     on_change=al_pressione_invio
 )
 
 st.markdown("---")
-st.subheader("📋 Inventario Modificabile e Ordinato")
-st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Categoria ➔ Codice (Ordinamento Naturale).")
+st.subheader("📋 Inventario Ordinato")
+st.caption("💡 Ordinamento: Compagnia ➔ Categoria ➔ Codice.")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
