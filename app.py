@@ -66,9 +66,6 @@ DIZIONARIO_COMPAGNIE = {
 
 SIGLE_COMPAGNIE = list(DIZIONARIO_COMPAGNIE.keys())
 
-def chiave_ordinamento_naturale(testo):
-    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(testo))]
-
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -245,8 +242,9 @@ if not st.session_state.database.empty:
 if not st.session_state.database.empty:
     df_temp = st.session_state.database.copy()
     
+    # 🟢 CORREZIONE COMPLETA: Inserito l'indice [0] per convertire correttamente il testo in numero intero
     df_temp['_pref'] = df_temp['Codice'].apply(lambda x: str(x)[:3])
-    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))) if re.findall(r'\d+', str(x)) else 0)
+    df_temp['_num'] = df_temp['Codice'].apply(lambda x: int(re.findall(r'\d+', str(x))[0]) if re.findall(r'\d+', str(x)) else 0)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
     
     df_ordinato = df_temp.sort_values(by=['Compagnia', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
@@ -270,30 +268,25 @@ if not st.session_state.database.empty:
     with col_dl2:
         fuso_orario_italia = zoneinfo.ZoneInfo("Europe/Rome")
         
-        # 🟢 NUOVA STRUTTURA DEL REPORT TXT: Impaginazione incolonnata e divisa per Compagnia
         testo_report = "========================================================================\n"
         testo_report += "🧳           REPORT INVENTARIO INTRALOGISTICA CONTAINER ULD            🧳\n"
         testo_report += f"Generato il: {datetime.now(fuso_orario_italia).strftime('%Y-%m-%d %H:%M:%S')}\n"
         testo_report += f"Totale elementi registrati: {len(st.session_state.database)}\n"
         testo_report += "========================================================================\n\n"
         
-        # Estrae l'elenco unico delle compagnie presenti nell'inventario per creare i divisori
         compagnie_uniche = df_ordinato['Compagnia'].unique()
         
         for comp in compagnie_uniche:
-            # Crea un blocco di intestazione visiva per la singola compagnia
             testo_report += "========================================================================\n"
             testo_report += f"✈️ COMPAGNIA: {comp}\n"
             testo_report += "========================================================================\n"
-            # Intestazione delle colonne con spaziature fisse per l'incolonnamento geometrico
             testo_report += f"{'[STATO]':<8}{'[CODICE]':<15}{'[CATEGORIA]':<38}{'[DATA/ORA SCAN]':<22}{'[NOTE DANNO]'}\n"
             testo_report += "------------------------------------------------------------------------\n"
             
-            # Isola solo i container appartenenti a questa compagnia
             df_compagnia = df_ordinato[df_ordinato['Compagnia'] == comp]
             for _, row in df_compagnia.iterrows():
                 testo_report += f"{row['Stato']:<8}{row['Codice']:<15}{row['Categoria']:<38}{row['Data/Ora Scan']:<22}{row['Tipo Danno']}\n"
-            testo_report += "\n" # Riga vuota di spazio tra una compagnia e l'altra
+            testo_report += "\n"
             
         st.download_button(label="📄 Scarica Report TXT", data=testo_report, file_name='inventario_uld_completo.txt', mime='text/plain', use_container_width=True)
 else:
