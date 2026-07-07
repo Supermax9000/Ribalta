@@ -48,9 +48,9 @@ def carica_database_permanente():
 if 'database' not in st.session_state:
     st.session_state.database = carica_database_permanente()
 
-# Memorizza il codice proposto dall'immagine per riempire la casella
-if 'testo_da_inserire' not in st.session_state:
-    st.session_state.testo_da_inserire = ""
+# 🟢 CONFIGURAZIONE CHIAVE: Inizializza la memoria della casella di testo se non esiste
+if 'campo_codice_pulito' not in st.session_state:
+    st.session_state.campo_codice_pulito = ""
 
 # Elenco ufficiale dei prefissi ULD e delle Compagnie Aeree
 PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
@@ -82,12 +82,13 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res[0]
-            testo_reale = str(res[1])  # 🟢 FIX: Estrae chirurgicamente solo la stringa di testo reale (indice 1)
+            coordinate_quadrato = res.get('box_2d', res) if isinstance(res, dict) else res
+            # Estrae rigorosamente solo la stringa di testo reale (indice 1)
+            testo_reale = str(res)
             
             try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                ys = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+                xs = [float(punto) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
@@ -131,7 +132,7 @@ def estrai_e_pulisci_uld(lista_righe):
             resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
             numeri = re.findall(r'\d+', resto_corretto)
             if numeri:
-                blocco_numerico = numeri[0]
+                blocco_numerico = numeri
                 if 4 <= len(blocco_numerico) <= 5:
                     posizione_numeri = resto_corretto.find(blocco_numerico)
                     suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
@@ -158,6 +159,7 @@ def classifica_container(codice):
 st.title("🧳 Gestione Rapida Contenitori ULD")
 st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
+# Sezione Opzionale dello Scanner Ottico
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
     img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
@@ -170,7 +172,8 @@ with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
             risultati_ocr = reader.readtext(opencv_img)
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
         if codice_da_ocr:
-            st.session_state.testo_da_inserire = codice_da_ocr
+            # Inietta il valore direttamente nella chiave del widget di sessione
+            st.session_state.campo_codice_pulito = codice_da_ocr
             st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi il tasto di salvataggio.")
         else:
             st.warning("Impossibile isolare un codice dall'immagine. Puoi comunque digitarlo a mano sotto.")
@@ -188,13 +191,14 @@ if 'messaggio_errore' in st.session_state:
     st.error(st.session_state.messaggio_errore)
     del st.session_state.messaggio_errore
 
-# Casella di testo sincronizzata
+# 🟢 CORREZIONE COMPLETA: Agganciato il campo ESCLUSIVAMENTE tramite la chiave 'key', rimuovendo 'value' per sbloccare il reset
 codice_input = st.text_input(
     "Controlla il codice o digitalo a mano:", 
-    value=st.session_state.testo_da_inserire,
+    key="campo_codice_pulito",
     placeholder="Es: AKE12345AZ"
 ).upper().strip()
 
+# Gestione del salvataggio tramite pulsante
 if codice_input:
     if st.button("💾 AGGIUNGI ALL'INVENTARIO", use_container_width=True, type="primary"):
         sigla_rilevata = codice_input[-2:] if len(codice_input) >= 5 else "XX"
@@ -231,8 +235,8 @@ if codice_input:
             st.session_state.database.to_csv(FILE_DATABASE, index=False)
             st.toast(f"💾 {codice_salvataggio} aggiunto correttamente!")
             
-            # 🟢 RESET REATTIVO: Svuota la variabile e pulisce la casella di testo
-            st.session_state.testo_da_inserire = ""
+            # 🟢 SVUOTAMENTO REALE: Pulisce la memoria del widget cancellandone la chiave prima del reload
+            st.session_state.campo_codice_pulito = ""
             st.rerun()
 
 st.markdown("---")
