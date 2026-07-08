@@ -113,7 +113,6 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
             if testo_pulito:
                 righe.append(testo_pulito)
     return righe
-
 def estrai_e_pulisci_uld(lista_righe):
     for riga in lista_righe:
         riga_pulita = re.sub(r'[^A-Z0-9]', '', riga.upper())
@@ -122,21 +121,17 @@ def estrai_e_pulisci_uld(lista_righe):
             prefisso_finale = match_prefisso.group(1)
             resto_riga = riga_pulita[3:]
             
-            # 🟢 CORREZIONE CHIRURGICA: Isola solo i numeri centrali per la conversione protetta
+            # Isola solo i numeri centrali per la conversione protetta
             blocchi_numerici = re.findall(r'\d+|[0O1IL]+', resto_riga)
             if blocchi_numerici:
-                # Prende la prima sequenza utile che assomiglia a un numero di 4-5 cifre
                 cifre_grezze = blocchi_numerici[0]
                 cifre_pulite = cifre_grezze.replace('O', '0').replace('I', '1').replace('L', '1')
                 
-                # Se la conversione ha prodotto un numero valido di 4 o 5 cifre
                 if 4 <= len(cifre_pulite) <= 5 and cifre_pulite.isdigit():
-                    # Isola tutto ciò che sta DOPO la parte numerica (la vera sigla della compagnia)
                     posizione_numeri = resto_riga.find(cifre_grezze)
                     suffisso = resto_riga[posizione_numeri + len(cifre_grezze):]
-                    suffisso = re.sub(r'[^A-Z]', '', suffisso)  # Tiene SOLO lettere per la compagnia, vietati i numeri
+                    suffisso = re.sub(r'[^A-Z]', '', suffisso)
                     
-                    # Se il suffisso è vuoto o incompleto prova a cercarlo nel testo originale della riga
                     if not suffisso or len(suffisso) < 2:
                         if "JUNEYAO" in riga_pulita or "HO" in riga_pulita: suffisso = "HO"
                         elif "CHINA" in riga_pulita or "EASTERN" in riga_pulita: suffisso = "MU"
@@ -144,9 +139,7 @@ def estrai_e_pulisci_uld(lista_righe):
                         else: suffisso = "XX"
                         
                     return f"{prefisso_finale}{cifre_pulite}{suffisso[:2]}"
-    return ""
-
-
+return ""
 def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
