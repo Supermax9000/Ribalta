@@ -71,7 +71,7 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# FUNZIONE GEOMETRICA LINEARE: Estrae il testo nativo senza passaggi che sporcano i dati
+# 🟢 RIPRISTINATA AD ALTA SENSIBILITÀ: Estrae in modo lineare ogni riga di testo trovata dall'OCR
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -83,29 +83,25 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
                 righe.append(testo_pulito)
     return righe
 
-# FUNZIONE DI PULIZIA BLINDATA: Estrae prefisso, numero centrale e protegge la sigla finale
+# 🟢 RIPRISTINATA AD ALTA SENSIBILITÀ: La vecchia logica infallibile che leggeva Air China al primo colpo
 def estrai_e_pulisci_uld(lista_righe):
     for riga in lista_righe:
         riga_pulita = re.sub(r'[^A-Z0-9]', '', riga.upper())
-        match_prefisso = re.search(r'^([A-Z]{3})', riga_pulita)
+        match_prefisso = re.search(r'^(AKE|AKH|AMU|DPE|PAG|PMC|ALF|DQP|RMP)', riga_pulita)
         if match_prefisso:
-            prefisso_rilevato = match_prefisso.group(1)
-            resto_riga = riga_pulita[3:]
+            prefisso_finale = match_prefisso.group(1)
+            resto_riga = riga_pulita[len(prefisso_finale):]
             
-            if prefisso_rilevato not in PREFISSI_VALIDI:
-                corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
-            else:
-                prefisso_finale = prefisso_rilevato
-                
-            # Isola le sole cifre numeriche centrali lasciando intatta la coda della stringa
-            numeri = re.findall(r'\d+', resto_riga)
+            # Sostituzioni classiche solo se necessarie per correggere errori visivi
+            resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
+            numeri = re.findall(r'\d+', resto_corretto)
+            
             if numeri:
                 blocco_numerico = numeri[0]
                 if 4 <= len(blocco_numerico) <= 5:
-                    posizione_numeri = resto_riga.find(blocco_numerico)
-                    suffisso = resto_riga[posizione_numeri + len(blocco_numerico):]
-                    suffisso = re.sub(r'[^A-Z]', '', suffisso)
+                    posizione_numeri = resto_corretto.find(blocco_numerico)
+                    suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
+                    suffisso = re.sub(r'[^A-Z0-9]', '', suffisso)
                     
                     if not suffisso or len(suffisso) < 2:
                         if "JUNEYAO" in riga_pulita or "HO" in riga_pulita: suffisso = "HO"
@@ -234,7 +230,7 @@ if not st.session_state.database.empty:
     df_temp['_num'] = df_temp['Codice'].apply(estrai_numero_codice)
     df_temp['_suff'] = df_temp['Codice'].apply(lambda x: str(x)[3:] if len(str(x)) > 3 else "")
     
-    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Stato', 'Categoria', '_pref', '_num', '_suff']).reset_index(drop=True)
+    df_ordinato = df_temp.sort_values(by=['Compagnia', 'Stato', 'Technical Term', '_pref', '_num', '_suff']).reset_index(drop=True)
     df_ordinato = df_ordinato[['Stato', 'Compagnia', 'Codice', 'Categoria', 'Data/Ora Scan', 'Tipo Danno']]
     
     tabella_modificata = st.data_editor(
