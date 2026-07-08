@@ -49,7 +49,7 @@ if 'database' not in st.session_state:
     st.session_state.database = carica_database_permanente()
 
 # Elenco ufficiale dei prefissi ULD e delle Compagnie Aeree
-PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
+PREFISSI_VALIDI = ["AKE", "AKH", "AKW", "AMU", "DPE", "PAG", "QKE", "PMC", "ALF", "DQP", "RMP"]
 
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
