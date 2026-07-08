@@ -106,42 +106,12 @@ def estrai_numero_codice(codice):
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
-    blocchi_processati = []
-    
+    righe = []
     for res in risultati_ocr:
         if isinstance(res, (list, tuple)) and len(res) >= 2:
-            coordinate_quadrato = res[0]
-            testo_reale = str(res[1]).strip()
-            
-            try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                
-                if ys and xs:
-                    y_centro = (min(ys) + max(ys)) / 2
-                    blocchi_processati.append({'y_centro': y_centro, 'x_min': min(xs), 'testo': testo_reale})
-            except Exception:
-                continue
-                
-    if not blocchi_processati:
-        return []
-        
-    blocchi_processati.sort(key=lambda x: x['y_centro'])
-    righe, riga_corrente, y_riga_corrente = [], [], -1
-    for blocco in blocchi_processati:
-        if y_riga_corrente == -1:
-            y_riga_corrente = blocco['y_centro']
-            riga_corrente.append(blocco)
-        elif abs(blocco['y_centro'] - y_riga_corrente) <= tolleranza_y:
-            riga_corrente.append(blocco)
-        else:
-            riga_corrente.sort(key=lambda x: x['x_min'])
-            righe.append(" ".join([b['testo'] for b in riga_corrente]))
-            y_riga_corrente = blocco['y_centro']
-            riga_corrente = [blocco]
-    if riga_corrente:
-        riga_corrente.sort(key=lambda x: x['x_min'])
-        righe.append(" ".join([b['testo'] for b in riga_corrente]))
+            testo_pulito = str(res[1]).strip()
+            if testo_pulito:
+                righe.append(testo_pulito)
     return righe
 
 def estrai_e_pulisci_uld(lista_righe):
