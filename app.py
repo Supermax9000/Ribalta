@@ -80,7 +80,6 @@ DIZIONARIO_COMPAGNIE = {
     "AI": "AI - Air India",
     "CX": "CX - Cathay Pacific",
     "SQ": "SQ - Singapore Airlines",
-    "QR": "QR - Qatar Airways",
     "TP": "TP - TAP Air Portugal",
     "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
