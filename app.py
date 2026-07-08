@@ -49,49 +49,18 @@ if 'database' not in st.session_state:
     st.session_state.database = carica_database_permanente()
 
 # Elenco ufficiale dei prefissi ULD e delle Compagnie Aeree
-PREFISSI_VALIDI = ["AKE", "AKH", "AKW", "AMU", "DPE", "PAG", "QKE", "PMC", "ALF", "DQP", "RMP"]
+PREFISSI_VALIDI = ["AKE", "AKH", "AMU", "DPE", "PAG", "PMC", "ALF", "DQP", "RMP"]
 
 DIZIONARIO_COMPAGNIE = {
     "R7": "R7 - Contenitore Jolly / Pooling",
-    "R9": "R9 - Contenitore Jolly / Pooling",
-    "CZ": "CZ - China Southern Airlines",
     "HO": "HO - Juneyao Air",
-    "AA": "AA - American Airlines",
-    "MS": "MS - Egyptair",
-    "SM": "SM - Air Cairo",
-    "ET": "ET - Ethiopian Airlines",
-    "KE": "KE - Korean Air",
-    "KU": "KU - Kuwait Airways",
-    "KY": "KY - Kunming Airlines",
-    "HU": "HU - Hainan Airlines",
-    "EY": "EY - Etihad Airways",
-    "WY": "WY - Oman Air",
-    "BR": "BR - EVA Air",
-    "CI": "CI - China Airlines",
-    "SK": "SK - SAS",
-    "SV": "SV - Saudi Arabian Airlines",
-    "IR": "IR - Iran Air",
-    "DL": "DL - Delta Air Lines",
-    "NO": "NO - Neos",
-    "AC": "AC - Air Canada",
-    "EN": "EN - Air Dolomiti",
-    "UX": "UX - Air Europa",
     "CA": "CA - Air China",
-    "AI": "AI - Air India",
-    "CX": "CX - Cathay Pacific",
-    "SQ": "SQ - Singapore Airlines",
-    "TP": "TP - TAP Air Portugal",
-    "LY": "LY - El Al Israel Airlines",
     "MU": "MU - China Eastern",
     "AZ": "AZ - ITA Airways",
     "LH": "LH - Lufthansa",
     "AF": "AF - Air France",
     "EK": "EK - Emirates",
     "QR": "QR - Qatar Airways",
-    "TK": "TK - Turkish Airlines",
-    "UA": "UA - United Airlines",
-    "HY": "HY - Uzbekistan Airways",
-    "VN": "VN - Vietnam Airlines",
     "XX": "XX - Sconosciuta / Altro"
 }
 
@@ -102,7 +71,7 @@ def estrai_numero_codice(codice):
     cifre = "".join(re.findall(r'\d+', str(codice)))
     return int(cifre) if cifre else 0
 
-# FUNZIONE GEOMETRICA CORRETTA: Isola chirurgicamente la stringa testuale all'indice 1
+# FUNZIONE GEOMETRICA LINEARE: Estrae il testo nativo senza passaggi che sporcano i dati
 def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
     if not risultati_ocr:
         return []
@@ -113,23 +82,29 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
             if testo_pulito:
                 righe.append(testo_pulito)
     return righe
+
+# FUNZIONE DI PULIZIA BLINDATA: Estrae prefisso, numero centrale e protegge la sigla finale
 def estrai_e_pulisci_uld(lista_righe):
     for riga in lista_righe:
         riga_pulita = re.sub(r'[^A-Z0-9]', '', riga.upper())
         match_prefisso = re.search(r'^([A-Z]{3})', riga_pulita)
         if match_prefisso:
-            prefisso_finale = match_prefisso.group(1)
+            prefisso_rilevato = match_prefisso.group(1)
             resto_riga = riga_pulita[3:]
             
-            # Isola solo i numeri centrali per la conversione protetta
-            blocchi_numerici = re.findall(r'\d+|[0O1IL]+', resto_riga)
-            if blocchi_numerici:
-                cifre_grezze = blocchi_numerici[0]
-                cifre_pulite = cifre_grezze.replace('O', '0').replace('I', '1').replace('L', '1')
+            if prefisso_rilevato not in PREFISSI_VALIDI:
+                corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
+                prefisso_finale = corrispondenze[0] if corrispondenze else prefisso_rilevato
+            else:
+                prefisso_finale = prefisso_rilevato
                 
-                if 4 <= len(cifre_pulite) <= 5 and cifre_pulite.isdigit():
-                    posizione_numeri = resto_riga.find(cifre_grezze)
-                    suffisso = resto_riga[posizione_numeri + len(cifre_grezze):]
+            # Isola le sole cifre numeriche centrali lasciando intatta la coda della stringa
+            numeri = re.findall(r'\d+', resto_riga)
+            if numeri:
+                blocco_numerico = numeri[0]
+                if 4 <= len(blocco_numerico) <= 5:
+                    posizione_numeri = resto_riga.find(blocco_numerico)
+                    suffisso = resto_riga[posizione_numeri + len(blocco_numerico):]
                     suffisso = re.sub(r'[^A-Z]', '', suffisso)
                     
                     if not suffisso or len(suffisso) < 2:
@@ -138,15 +113,14 @@ def estrai_e_pulisci_uld(lista_righe):
                         elif "R7" in riga_pulita: suffisso = "R7"
                         else: suffisso = "XX"
                         
-                    return f"{prefisso_finale}{cifre_pulite}{suffisso[:2]}"
+                    return f"{prefisso_finale}{blocco_numerico}{suffisso[:2]}"
     return ""
+
 def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
-        "QKE": "📦 Container Standard ignifugo (Dolly)",
         "AKH": "✈️ Container Basso (A320/A321)",
-        "AKW": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
         "PAG": "🏁 Pallet per Merci Pallettizzate",
@@ -199,9 +173,8 @@ def click_bottone_salva():
         
         st.session_state.campo_codice_pulito = ""
 
-st.title("🧳 Gestione ULD")
-st.write("Dati salvati con l'orario uff. Roma.")
-st.write("©️by Casamassima")
+st.title("🧳 Gestione Rapida Contenitori ULD")
+st.write("I dati sono salvati in automatico con l'orario ufficiale italiano (Roma).")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
@@ -246,7 +219,7 @@ st.markdown("---")
 
 conteggio_totale = len(st.session_state.database)
 st.subheader(f"📋 Inventario: {conteggio_totale} ULD")
-st.caption("💡 Ordinamento: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
+st.caption("💡 L'ordinamento definitivo applicato è: Compagnia ➔ Stato (Integrità) ➔ Categoria ➔ Codice.")
 
 if not st.session_state.database.empty:
     if st.button("🗑️ Svuota Tutto l'Inventario", help="Cancella definitivamente tutti i record salvati"):
