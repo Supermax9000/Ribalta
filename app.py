@@ -119,28 +119,33 @@ def estrai_e_pulisci_uld(lista_righe):
         riga_pulita = re.sub(r'[^A-Z0-9]', '', riga.upper())
         match_prefisso = re.search(r'^([A-Z]{3})', riga_pulita)
         if match_prefisso:
-            prefisso_rilevato = match_prefisso.group(1)
+            prefisso_finale = match_prefisso.group(1)
             resto_riga = riga_pulita[3:]
-            if prefisso_rilevato not in PREFISSI_VALIDI:
-                corrispondenze = difflib.get_close_matches(prefisso_rilevato, PREFISSI_VALIDI, n=1, cutoff=0.3)
-                prefisso_finale = corrispondenze if corrispondenze else prefisso_rilevato
-            else:
-                prefisso_finale = prefisso_rilevato
-            resto_corretto = resto_riga.replace('O', '0').replace('I', '1').replace('L', '1')
-            numeri = re.findall(r'\d+', resto_corretto)
-            if numeri:
-                blocco_numerico = numeri[0]
-                if 4 <= len(blocco_numerico) <= 5:
-                    posizione_numeri = resto_corretto.find(blocco_numerico)
-                    suffisso = resto_corretto[posizione_numeri + len(blocco_numerico):]
-                    suffisso = re.sub(r'[^A-Z0-9]', '', suffisso)
+            
+            # 🟢 CORREZIONE CHIRURGICA: Isola solo i numeri centrali per la conversione protetta
+            blocchi_numerici = re.findall(r'\d+|[0O1IL]+', resto_riga)
+            if blocchi_numerici:
+                # Prende la prima sequenza utile che assomiglia a un numero di 4-5 cifre
+                cifre_grezze = blocchi_numerici[0]
+                cifre_pulite = cifre_grezze.replace('O', '0').replace('I', '1').replace('L', '1')
+                
+                # Se la conversione ha prodotto un numero valido di 4 o 5 cifre
+                if 4 <= len(cifre_pulite) <= 5 and cifre_pulite.isdigit():
+                    # Isola tutto ciò che sta DOPO la parte numerica (la vera sigla della compagnia)
+                    posizione_numeri = resto_riga.find(cifre_grezze)
+                    suffisso = resto_riga[posizione_numeri + len(cifre_grezze):]
+                    suffisso = re.sub(r'[^A-Z]', '', suffisso)  # Tiene SOLO lettere per la compagnia, vietati i numeri
+                    
+                    # Se il suffisso è vuoto o incompleto prova a cercarlo nel testo originale della riga
                     if not suffisso or len(suffisso) < 2:
                         if "JUNEYAO" in riga_pulita or "HO" in riga_pulita: suffisso = "HO"
                         elif "CHINA" in riga_pulita or "EASTERN" in riga_pulita: suffisso = "MU"
                         elif "R7" in riga_pulita: suffisso = "R7"
                         else: suffisso = "XX"
-                    return f"{prefisso_finale}{blocco_numerico}{suffisso[:2]}"
+                        
+                    return f"{prefisso_finale}{cifre_pulite}{suffisso[:2]}"
     return ""
+
 
 def classifica_container(codice):
     prefisso = codice[:3]
