@@ -115,8 +115,9 @@ def unisci_blocchi_orizzontali(risultati_ocr, tolleranza_y=25):
             testo_reale = str(res[1]).strip()  # 🟢 FIX CHIRURGICO: Estrae solo la stringa di testo reale scartando i metadati geometrici
             
             try:
-                ys = [float(punto[1]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
-                xs = [float(punto[0]) for punto in coordinate_quadrato if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+        ys = [float(punto[1]) for punto in coordinate_quadrato[0] if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+        xs = [float(punto[0]) for punto in coordinate_quadrato[0] if isinstance(punto, (list, tuple)) and len(punto) >= 2]
+
                 
                 if ys and xs:
                     y_centro = (min(ys) + max(ys)) / 2
