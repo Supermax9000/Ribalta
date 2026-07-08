@@ -139,7 +139,7 @@ def estrai_e_pulisci_uld(lista_righe):
                         else: suffisso = "XX"
                         
                     return f"{prefisso_finale}{cifre_pulite}{suffisso[:2]}"
-return ""
+    return ""
 def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
