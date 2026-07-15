@@ -205,7 +205,7 @@ st.write("©️by Casamassima")
 
 with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
     modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
-    img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
+    img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto", facing_mode="environment")
 
     if img_file is not None:
         file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
