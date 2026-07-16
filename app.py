@@ -203,15 +203,20 @@ st.title("🧳 Gestione ULD")
 st.write("Dati salvati con l'orario uff. Roma.")
 st.write("©️by Casamassima")
 
-with st.expander("📷 Usa Fotocamera o Carica Foto per estrarre il codice"):
-    modalita = st.radio("Sorgente immagine:", ["Carica file immagine (JPG/PNG)", "Usa Fotocamera Smartphone"])
-    img_file = st.file_uploader("Scegli un file immagine", type=["jpg", "jpeg", "png"]) if modalita == "Carica file immagine (JPG/PNG)" else st.camera_input("Scatta una foto")
-
+with st.expander("📷 Scatta o Carica Foto per estrarre il codice"):
+    st.write("Scegli come acquisire il codice ULD:")
+    
+    # Sfrutta il selettore di file nativo del telefono per forzare l'apertura della fotocamera posteriore
+    img_file = st.file_uploader(
+        "🟢 CLICCA QUI PER ATTIVARE LA FOTOCAMERA POSTERIORE (NATIVA)", 
+        type=["jpg", "jpeg", "png"],
+        help="Sullo smartphone aprirà direttamente la tua fotocamera posteriore principale."
+    )
 
     if img_file is not None:
         file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
         opencv_img = cv2.imdecode(file_bytes, 1)
-        st.image(opencv_img, channels="BGR", caption="Anteprima", use_container_width=True)
+        st.image(opencv_img, channels="BGR", caption="Anteprima Immagine Acquisita", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
             risultati_ocr = reader.readtext(opencv_img)
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
