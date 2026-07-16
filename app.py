@@ -218,8 +218,12 @@ with st.expander("📷 Scatta o Carica Foto per estrarre il codice"):
         opencv_img = cv2.imdecode(file_bytes, 1)
         st.image(opencv_img, channels="BGR", caption="Anteprima Immagine Acquisita", use_container_width=True)
         with st.spinner("Lettura ottica del testo..."):
+            # Estrae la matrice geometrica nativa
             risultati_ocr = reader.readtext(opencv_img)
+        
+        # 🟢 CORREZIONE: Pulisce il codice combinando correttamente i blocchi lineari esistenti nel tuo file
         codice_da_ocr = estrai_e_pulisci_uld(unisci_blocchi_orizzontali(risultati_ocr)) if risultati_ocr else ""
+        
         if codice_da_ocr:
             st.session_state.campo_codice_pulito = codice_da_ocr
             st.success(f"Codice estratto: **{codice_da_ocr}**. Controllalo sotto e premi il tasto di salvataggio.")
