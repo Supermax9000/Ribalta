@@ -147,7 +147,9 @@ def classifica_container(codice):
     prefisso = codice[:3]
     dizionario_categorie = {
         "AKE": "📦 Container Standard (Dolly)",
+        "ALF": "✈️ Container Grande",
         "AKH": "✈️ Container Basso (A320/A321)",
+        "DKH": "✈️ Container Basso (A320/A321)",
         "AMU": "🐋 Container Grande (Main Deck)",
         "DPE": "📦 Container Profilato Standard (LD3)",
         "PAG": "🏁 Pallet per Merci Pallettizzate",
